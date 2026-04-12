@@ -4,10 +4,12 @@ import java.util.Scanner;
 public class CourseMenu {
     private final CourseConfig config;
     private final Scanner scanner;
+    private final CacheApi cacheApi;
     
-    public CourseMenu(CourseConfig config, Scanner scanner) {
+    public CourseMenu(CourseConfig config, Scanner scanner, CacheApi cacheApi) {
         this.config = config;
         this.scanner = scanner;
+        this.cacheApi = cacheApi;
     }
     
     //main
@@ -37,12 +39,21 @@ public class CourseMenu {
         }
     }
     
+    //auto-suggestion helper
+    private void showCourseSuggestions(String prefix) {
+        if (prefix.length() < 2) return;
+        List<String> hints = cacheApi.suggest(prefix, "course");
+        if (!hints.isEmpty()) {
+            System.out.println("Suggestions: " + hints); 
+        }
+    }
+    
     //view all courses
     private void viewAllCourses() {
-        List<Course> courses = config.getAllCourses();
+        Course[] courses = config.getAllCourses();
         System.out.println("\n=== All Registered Courses (" + config.getCount() + ") ===");
         
-        if (courses.isEmpty()) {
+        if (courses.length == 0) {
             System.out.println("No courses found.");
             return;
         }
@@ -67,6 +78,18 @@ public class CourseMenu {
         System.out.print("Enter Course Name (Full): ");
         String name = scanner.nextLine();
         
+        //course type input 
+        String courseType = "core";
+        System.out.print("Enter Course Type (core/elective/university) [default: core]: ");
+        String typeInput = scanner.nextLine().trim().toLowerCase();
+        if (!typeInput.isEmpty()) {
+            if (typeInput.equals("core") || typeInput.equals("elective") || typeInput.equals("university")) {
+                courseType = typeInput;
+            } else {
+                System.out.println("Invalid type. Defaulting to 'core'.");
+            }
+        }
+        
         int credits = 0;
         try {
             System.out.print("Enter Credit Hours: ");
@@ -82,9 +105,12 @@ public class CourseMenu {
         System.out.print("Enter MS Teams Link: ");
         String link = scanner.nextLine();
         
-        Course newCourse = new Course(name, code, credits, summary, link);
+        Course newCourse = new Course(name, code, credits, summary, link, courseType);
+        
         if (config.addCourse(newCourse)) {
             System.out.println("Course submitted successfully!");
+            cacheApi.cache(code, newCourse);
+            cacheApi.cache(name.toLowerCase(), newCourse);
             viewAllCourses();
         } else {
             System.out.println("Failed to add Course.");
@@ -95,17 +121,32 @@ public class CourseMenu {
     private void searchCourse() {
         System.out.print("Enter Course Code to search: ");
         String code = scanner.nextLine().trim().toUpperCase();
+        
+        //show suggestions 
+        if (code.length() >= 2) {
+            showCourseSuggestions(code);
+        }
+        
+        Object cached = cacheApi.getCached(code);
+        if (cached instanceof Course) {
+            System.out.println("\nFound (from cache):");
+            System.out.println((Course) cached);
+            return;
+        }
+        
         Course course = config.findCourseByCode(code);
         
         if (course != null) {
             System.out.println("\nFound:");
             System.out.println(course);
-        } else { 
+            cacheApi.cache(code, course);
+            cacheApi.cache(course.getCourseName().toLowerCase(), course);
+        } else {
             System.out.println("Course not found with Code: " + code);
         }
     }
     
-    //edit course
+    //edit course - w course type
     private void editCourse() {
         System.out.print("Enter Course Code to edit: ");
         String code = scanner.nextLine().trim().toUpperCase();
@@ -136,6 +177,17 @@ public class CourseMenu {
             }
         }
         
+        System.out.print("Enter new Course Type (core/elective/university) or press Enter to keep current: ");
+        String newTypeInput = scanner.nextLine().trim().toLowerCase();
+        String newType = course.getCourseType();
+        if (!newTypeInput.isEmpty()) {
+            if (newTypeInput.equals("core") || newTypeInput.equals("elective") || newTypeInput.equals("university")) {
+               newType = newTypeInput; 
+            } else {
+                System.out.println("Invalid type. Keeping current type: " + course.getCourseType());
+            }
+        }
+        
         System.out.print("Enter new Summary (or press Enter to keep current): ");
         String newSum = scanner.nextLine();
         if (newSum.isEmpty()) newSum = course.getSummary();
@@ -145,7 +197,13 @@ public class CourseMenu {
         if (newLink.isEmpty()) newLink = course.getTeamsLink();
         
         if (config.editCourse(code, newName, newCredits, newSum, newLink)) {
+            course.setCourseType(newType);
             System.out.println("Course updated successfully!");
+            
+            //update cache
+            cacheApi.cache(code, course);
+            cacheApi.cache(newName.toLowerCase(), course);
+            
             System.out.println("\nUpdated Details:");
             System.out.println(config.findCourseByCode(code));
             viewAllCourses();
@@ -174,6 +232,7 @@ public class CourseMenu {
         if (confirm.equalsIgnoreCase("YES")) {
             if (config.deleteCourse(code)) {
                 System.out.println("Course deleted successfully!");
+                cacheApi.cache(code, null); //remove from cache
                 viewAllCourses();
             } else {
                 System.out.println("Error deleting course.");
