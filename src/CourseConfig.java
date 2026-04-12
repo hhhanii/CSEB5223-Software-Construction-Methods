@@ -1,36 +1,47 @@
-import java.util.ArrayList;
-import java.util.List;
-
 public class CourseConfig {
-    private List<Course> courseList;
+    private static final int MAX_CAPACITY = 50;
+    private Course[] courseList;
+    private int courseCount;
     
     public CourseConfig() {
-        this.courseList = new ArrayList<>();
+        this.courseList = new Course[MAX_CAPACITY];
+        this.courseCount = 0;
+        
         //test
-        courseList.add(new Course("Object Oriented Programming", "CSEB3313", 3, "Basic Java concepts", "https://teams.microsoft.com/cseb3213"));
+        addCourse(new Course("Object Oriented Programming", "CSEB3313", 3, "Basic Java concepts", "https://cseb3313.msteams"));
     }
     
-    //Add Course
+    //add course
     public boolean addCourse(Course course) {
-        //check to prevent duplicate IDs 
-        if (findCourseByCode(course.getCourseCode()) != null) {
+        //check capacity 
+        if (courseCount >= MAX_CAPACITY) {
+            System.out.println("Error: Course registry is full (max " + MAX_CAPACITY + ").");
             return false;
         }
-        courseList.add(course);
+        
+        //check to prevent duplicate IDs 
+        if (findCourseByCode(course.getCourseCode()) != null) {
+            System.out.println("Error: Course code " + course.getCourseCode() + " already exists.");
+            return false;
+        }
+        
+        courseList[courseCount] = course;
+        courseCount++;
         return true;
     }
 
-    //Search Function by Course Code 
+    //search function by course code 
     public Course findCourseByCode(String code) {
-        for (Course c : courseList) {
-            if (c.getCourseCode().equalsIgnoreCase(code)) {
-                return c;
+        if (code == null) return null;
+        for (int i = 0; i < courseCount; i++) {
+            if (courseList[i].getCourseCode().equalsIgnoreCase(code)) {
+                return courseList[i];
             }
         }
         return null;
     }
     
-    //Edit Function
+    //edit function
     public boolean editCourse(String code, String newName, int newCredits, String newSummary, String newTeamsLink) {
         Course course = findCourseByCode(code);
         if (course == null) {
@@ -43,21 +54,43 @@ public class CourseConfig {
         return true;
     }
     
-    //Delete Function
+    //delete function
     public boolean deleteCourse(String code) {
-        Course course = findCourseByCode(code);
-        if (course == null) {
-            return false;
+        int index = -1;
+        for (int i = 0; i < courseCount; i++) {
+            if (courseList[i].getCourseCode().equalsIgnoreCase(code)) {
+                index = i;
+                break;
+            }
         }
-        return courseList.remove(course);  
+        
+        if (index == -1) {
+            return false;
+        } 
+        
+        for (int i = index; i < courseCount - 1; i++) {
+            courseList[i] = courseList[i + 1];
+        }
+        
+        courseList[courseCount - 1] = null;
+        courseCount--;
+        return true;
     }
     
-    //Display All Courses 
-    public List<Course> getAllCourses() {
-        return courseList;
+    //display all courses 
+    public Course[] getAllCourses() {
+        Course[] result = new Course[courseCount];
+        for (int i = 0; i < courseCount; i++) {
+            result[i] = courseList[i];
+        }
+        return result;
     }
     
     public int getCount() {
-        return courseList.size();
+        return courseCount;
+    }
+    
+    public boolean isEmpty() {
+        return courseCount == 0;
     }
 }
