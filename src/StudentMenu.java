@@ -2,12 +2,16 @@ import java.util.List;
 import java.util.Scanner;
 
 public class StudentMenu {
-    private final List<Student> studentList;
+    private final Student[] studentList;
+    private final int studentCount;
     private final Scanner scanner;
+    private final CacheApi cacheApi;
     
-    public StudentMenu(List<Student> studentList, Scanner scanner) {
+    public StudentMenu(Student[] studentList, int studentCount, Scanner scanner, CacheApi cacheApi) {
         this.studentList = studentList;
+        this.studentCount = studentCount;
         this.scanner = scanner;
+        this.cacheApi = cacheApi;
     }
     
     public void studentExecute() {
@@ -36,16 +40,26 @@ public class StudentMenu {
         }
     }
     
+    //auto-suggestion
+    private void showStudentSuggestions(String prefix) {
+        if (prefix.length() < 2) return;
+        List<String> hints = cacheApi.suggest(prefix, "student");
+        if (!hints.isEmpty()) {
+            System.out.println("Suggestions: " + hints);
+        }
+    }
+    
     //linear search for student by ID
     public int findStudentIndexById(String id) {
-        for (int i = 0; i < studentList.size(); i++) {
-            if (studentList.get(i).getStudentID().equalsIgnoreCase(id)) {
+        for (int i = 0; i < studentCount; i++) {
+            if (studentList[i] != null && studentList[i].getStudentID().equalsIgnoreCase(id)) {
                 return i;
             }
         }
-        return -1; // Not found
+        return -1; //not found
     }
     
+    //add student
     private void addStudent() {
         System.out.println("\n-- Add New Student --");
         
@@ -68,21 +82,51 @@ public class StudentMenu {
         String phone = scanner.nextLine();
 
         Student newStudent = new Student(fName, lName, sID, email, phone);
-        studentList.add(newStudent);
-        
-        System.out.println("Student profile submitted successfully!");
-        viewAllStudents(); //display after action
-    }
 
+        boolean added = false;
+        for (int i = 0; i < studentList.length; i++) {
+            if (studentList[i] == null) {
+                studentList[i] = newStudent;
+                added = true;
+                break;
+            }
+        }
+        
+        if (added) {
+            System.out.println("Student profile submitted successfully!");
+            cacheApi.cache(sID, newStudent);
+            cacheApi.cache(fName.toLowerCase(), newStudent);
+            viewAllStudents(); //display after action
+        } else {
+            System.out.println("Error: Student registry is full.");
+        }
+        
+    }
+    
+    //search student
     private void searchStudent() {
         System.out.print("\nEnter Student ID to search: ");
         String searchID = scanner.nextLine().trim().toUpperCase();
+        
+        if (searchID.length() >= 2) {
+            showStudentSuggestions(searchID);
+        }
+        
+        Object cached = cacheApi.getCached(searchID);
+        if (cached instanceof Student) {
+            System.out.println("\nStudent Found (from cache):");
+            displaySingleStudent((Student) cached);
+            return;
+        }
 
         int index = findStudentIndexById(searchID);
 
         if (index != -1) {
             System.out.println("\nStudent Found:");
-            displaySingleStudent(studentList.get(index));
+            Student found = studentList[index];
+            displaySingleStudent(found);
+            cacheApi.cache(searchID, found);
+            cacheApi.cache(found.getFullName().toLowerCase(), found);
         } else {
             System.out.println("Student not found with ID: " + searchID);
         }
@@ -94,7 +138,7 @@ public class StudentMenu {
         int index = findStudentIndexById(searchID);
 
         if (index != -1) {
-            Student s = studentList.get(index);
+            Student s = studentList[index];
             System.out.println("\n--- Edit Profile (ID cannot be changed) ---");
             System.out.println("Current Name: " + s.getFullName());
             
@@ -115,6 +159,9 @@ public class StudentMenu {
             if (!newPhone.isEmpty()) s.setPhoneNumber(newPhone);
 
             System.out.println("\nProfile updated successfully!");
+            cacheApi.cache(s.getStudentID(), s);
+            cacheApi.cache(s.getFullName().toLowerCase(), s);
+            
             displaySingleStudent(s);
             viewAllStudents(); //display after action
         } else {
@@ -129,12 +176,17 @@ public class StudentMenu {
 
         if (index != -1) {
             System.out.print("Are you sure you want to delete " + 
-                           studentList.get(index).getFullName() + "? (yes/no): ");
+                           studentList[index].getFullName() + "? (yes/no): ");
             String confirm = scanner.nextLine();
 
             if (confirm.equalsIgnoreCase("yes")) {
-                studentList.remove(index); 
+                for (int i = index; i < studentCount - 1; i++) {
+                    studentList[i] = studentList[i + 1];
+                }
+                studentList[studentCount - 1] = null;
+                
                 System.out.println("Student deleted successfully!");
+                cacheApi.cache(searchID, null);
                 viewAllStudents(); //display changes
             } else {
                 System.out.println("Deletion cancelled.");
@@ -146,7 +198,16 @@ public class StudentMenu {
 
     private void viewAllStudents() {
         System.out.println("\n=== All Student Records ===");
-        if (studentList.isEmpty()) {
+        
+        boolean hasStudents = false;
+        for (int i = 0; i < studentCount; i++) {
+            if (studentList[i] != null) {
+                hasStudents = true;
+                break;
+            }
+        }
+        
+        if (!hasStudents) {
             System.out.println("No students registered.");
             return;
         }
@@ -154,7 +215,8 @@ public class StudentMenu {
         System.out.printf("%-12s %-25s %-30s %-15s%n", "ID", "Name", "Email", "Phone");
         System.out.println("--------------------------------------------------------------------------------");
         
-        for (Student s : studentList) {
+        for (int i = 0; i < studentCount; i++) {
+            Student s = studentList[i];
             System.out.printf("%-12s %-25s %-30s %-15s%n", 
                 s.getStudentID(), 
                 s.getFullName(), 
