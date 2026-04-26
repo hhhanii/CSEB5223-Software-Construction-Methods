@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CacheApi {
+    //cache settings
     private static final int CACHE_SIZE = 20;
     private String[] cacheKeys = new String[CACHE_SIZE];
     private Object[] cacheValues = new Object[CACHE_SIZE];
@@ -24,6 +25,7 @@ public class CacheApi {
         this.studentCount = studentCount;
     }
     
+    //save result to cache 
     public void cache(String key, Object value) {
         if (key == null) return;
         cacheKeys[head] = key.toLowerCase();
@@ -32,6 +34,7 @@ public class CacheApi {
         if (count < CACHE_SIZE) count++;
     }
     
+    //get cached result by key (case-insensitive)
     public Object getCached(String key) {
         if (key == null) return null;
         String lowerKey = key.toLowerCase();
@@ -45,12 +48,14 @@ public class CacheApi {
         return null;
     }
     
+    //get auto-suggestion based on prefix (up to 5 matches)
     public List<String> suggest(String prefix, String type) {
         List<String> results = new ArrayList<>();
         if (prefix == null || prefix.length() < 2) return results;
         
         String p = prefix.toLowerCase();
         
+        //course suggestions
         if ("course".equalsIgnoreCase(type) && config != null) {
             Course[] courses = config.getAllCourses();
             for (Course c : courses) {
@@ -65,6 +70,7 @@ public class CacheApi {
                     }
                 }
             }
+        //student suggestions
         } else if ("student".equalsIgnoreCase(type) && studentArray != null) {
             for (int i = 0; i < studentCount; i++) {
                 Student s = studentArray[i];
