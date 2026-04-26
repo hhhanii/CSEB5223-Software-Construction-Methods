@@ -3,7 +3,7 @@ import java.util.Scanner;
 
 public class StudentMenu {
     private final Student[] studentList;
-    private final int studentCount;
+    private int studentCount;
     private final Scanner scanner;
     private final CacheApi cacheApi;
     
@@ -12,6 +12,10 @@ public class StudentMenu {
         this.studentCount = studentCount;
         this.scanner = scanner;
         this.cacheApi = cacheApi;
+    }
+    
+    public int getStudentCount() {
+        return studentCount;
     }
     
     public void studentExecute() {
@@ -93,6 +97,7 @@ public class StudentMenu {
         }
         
         if (added) {
+            this.studentCount++;
             System.out.println("Student profile submitted successfully!");
             cacheApi.cache(sID, newStudent);
             cacheApi.cache(fName.toLowerCase(), newStudent);
@@ -184,7 +189,7 @@ public class StudentMenu {
                     studentList[i] = studentList[i + 1];
                 }
                 studentList[studentCount - 1] = null;
-                
+                this.studentCount--;
                 System.out.println("Student deleted successfully!");
                 cacheApi.cache(searchID, null);
                 viewAllStudents(); //display changes

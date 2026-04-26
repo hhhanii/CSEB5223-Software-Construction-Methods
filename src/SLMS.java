@@ -39,6 +39,8 @@ public class SLMS {
                           break;
                 case "2": StudentMenu studentMenu = new StudentMenu(studentList, studentCount, scanner, cacheApi);
                           studentMenu.studentExecute(); 
+                          
+                          studentCount = studentMenu.getStudentCount();
                           break;
                 case "3": 
                     runEnrollmentMenu();
