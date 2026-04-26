@@ -72,7 +72,7 @@ public class CacheApi {
             }
         //student suggestions
         } else if ("student".equalsIgnoreCase(type) && studentArray != null) {
-            for (int i = 0; i < studentCount; i++) {
+            for (int i = 0; i < studentArray.length; i++) {
                 Student s = studentArray[i];
                 if (s == null) continue;
                 String id = s.getStudentID().toLowerCase();
